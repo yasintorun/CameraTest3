@@ -3,19 +3,28 @@ import { SafeAreaView, StyleSheet, Text } from 'react-native';
 import { Camera, useCameraDevices, useFrameProcessor } from 'react-native-vision-camera';
 import { DBRConfig, decode, TextResult } from 'vision-camera-dynamsoft-barcode-reader';
 import * as REA from 'react-native-reanimated';
+import {GetImageData} from './src/plugins/GetImageData'
+// import 'opencv'
 
 export default function App() {
   const [hasPermission, setHasPermission] = React.useState(false);
   const [barcodeResults, setBarcodeResults] = React.useState([]);
   const devices = useCameraDevices();
   const device = devices.back;
+  let t = null;
   const frameProcessor = useFrameProcessor((frame) => {
     'worklet'
     const config = {};
     config.template="{\"ImageParameter\":{\"BarcodeFormatIds\":[\"BF_QR_CODE\"],\"Description\":\"\",\"Name\":\"Settings\"},\"Version\":\"3.0\"}"; //scan qrcode only
-
+    // console.log(frame)
     const results = decode(frame,config)
-    console.log(results)
+    // results.map(pos => {
+    //   cv.circle(img,(447,63), , (0,0,255), -1)
+    // })
+    if(!t) {
+      t = GetImageData(frame)
+      console.log(t)
+    }
     REA.runOnJS(setBarcodeResults)(results);
   }, [])
 

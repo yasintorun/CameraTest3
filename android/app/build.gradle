@@ -266,6 +266,8 @@ dependencies {
 
     //noinspection GradleDynamicVersion
     implementation "com.facebook.react:react-native:+"  // From node_modules
+    implementation "androidx.camera:camera-core:1.1.0-alpha06"
+    implementation project(path: ':react-native-vision-camera')
 
     implementation "androidx.swiperefreshlayout:swiperefreshlayout:1.0.0"
 
