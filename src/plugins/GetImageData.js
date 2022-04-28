@@ -1,4 +1,4 @@
-export function GetImageData(frame) {
+export function GetImageData(frame, barcode) {
   'worklet'
-  return __GetImageData(frame)
+  return __GetImageData(frame, barcode)
 }

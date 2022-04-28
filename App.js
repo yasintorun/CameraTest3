@@ -14,19 +14,21 @@ export default function App() {
   let t = null;
   const frameProcessor = useFrameProcessor((frame) => {
     'worklet'
-    const base64 = GetImageData(frame).base64
-    REA.runOnJS(setFrame)({imageData: base64});
+    // const base64 = GetImageData(frame).base64
+    // REA.runOnJS(setFrame)({imageData: base64});
     // setFrame({imageData: base64})
 
-    // const config = {};
-    // config.template = "{\"ImageParameter\":{\"BarcodeFormatIds\":[\"BF_QR_CODE\"],\"Description\":\"\",\"Name\":\"Settings\"},\"Version\":\"3.0\"}"; //scan qrcode only
-    // const results = decode(frame, config)
-    // if (results && results[0] && !frameData) {
-    //   const base64 = GetImageData(frame).base64
-    //   const frameData = { ...results[0], width: frame.width, height: frame.height, imageData: base64 }
-    //   REA.runOnJS(setFrame)(frameData);
-    //   RNCv.imageToMap()
-    // }
+    const config = {};
+    config.template = "{\"ImageParameter\":{\"BarcodeFormatIds\":[\"BF_QR_CODE\"],\"Description\":\"\",\"Name\":\"Settings\"},\"Version\":\"3.0\"}"; //scan qrcode only
+    const results = decode(frame, config)
+    if (results && results[0]) {
+      console.log(results[0])
+      const r = results[0]
+      const base64 = GetImageData(frame, {...r}).base64
+      REA.runOnJS(setFrame)({imageData: base64});
+      // const frameData = { ...results[0], width: frame.width, height: frame.height, imageData: base64 }
+      // REA.runOnJS(setFrame)(frameData);
+    }
   }, [])
   React.useEffect(() => {
     (async () => {
@@ -47,7 +49,7 @@ export default function App() {
               frameProcessor={frameProcessor}
               frameProcessorFps={1}
             />
-            <Image source={{ uri: `data:image/jpeg;base64,${frameData?.imageData}` }} style={{ width: 200, height: 200 }} />
+            <Image source={{ uri: `data:image/jpeg;base64,${frameData?.imageData}` }} style={{ width: 400, height: 300 }} />
           </>
         )}
     </SafeAreaView>
@@ -64,7 +66,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   camera: {
-    width: 200,
-    height: 200,
+    width: 400,
+    height: 300,
   }
 });
