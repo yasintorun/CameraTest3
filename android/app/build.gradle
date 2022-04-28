@@ -134,6 +134,15 @@ android {
 
     compileSdkVersion rootProject.ext.compileSdkVersion
 
+    packagingOptions {
+        pickFirst '**/*.so'
+
+        //pickFirst 'lib/x86/libc++_shared.so'
+//        pickFirst 'lib/x86_64/libc++_shared.so'
+//        pickFirst 'lib/armeabi-v7a/libc++_shared.so'
+//        pickFirst 'lib/arm64-v8a/libc++_shared.so'
+    }
+
     defaultConfig {
         applicationId "com.cameratest3"
         minSdkVersion rootProject.ext.minSdkVersion
@@ -270,6 +279,7 @@ dependencies {
     implementation project(path: ':react-native-vision-camera')
 
     implementation "androidx.swiperefreshlayout:swiperefreshlayout:1.0.0"
+    implementation project(path: ':sdk')
 
     debugImplementation("com.facebook.flipper:flipper:${FLIPPER_VERSION}") {
         exclude group:'com.facebook.fbjni'
