@@ -24,7 +24,9 @@ export default function App() {
     if (results && results[0]) {
       console.log(results[0])
       const r = results[0]
-      const base64 = GetImageData(frame, {...r}).base64
+      const point = [r.x4, r.y4]
+      const corners = [1,0, 2,3]
+      const base64 = GetImageData(frame, {point: point, corners: corners})?.base64
       REA.runOnJS(setFrame)({imageData: base64});
       // const frameData = { ...results[0], width: frame.width, height: frame.height, imageData: base64 }
       // REA.runOnJS(setFrame)(frameData);
@@ -49,7 +51,7 @@ export default function App() {
               frameProcessor={frameProcessor}
               frameProcessorFps={1}
             />
-            <Image source={{ uri: `data:image/jpeg;base64,${frameData?.imageData}` }} style={{ width: 400, height: 300 }} />
+            <Image source={{ uri: `data:image/jpeg;base64,${frameData?.imageData}` }} style={{ width: 350, height: 300, resizeMode: "contain" }} />
           </>
         )}
     </SafeAreaView>
@@ -66,7 +68,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   camera: {
-    width: 400,
+    width: 350,
     height: 300,
   }
 });

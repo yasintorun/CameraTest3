@@ -1,8 +1,12 @@
 package com.cameratest3.frameProcessor;
+import androidx.annotation.RequiresApi;
 import androidx.camera.core.ImageProxy;
 
 import android.annotation.SuppressLint;
 import android.graphics.Bitmap;
+import android.os.Build;
+import android.os.Debug;
+import android.util.Log;
 
 import com.facebook.react.bridge.ReadableArray;
 import com.facebook.react.bridge.WritableNativeMap;
@@ -12,24 +16,49 @@ import com.mrousavy.camera.frameprocessor.FrameProcessorPlugin;
 import com.cameratest3.*;
 
 import org.opencv.android.Utils;
+import org.opencv.core.Core;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfPoint;
+import org.opencv.core.MatOfPoint2f;
 import org.opencv.core.Point;
 import org.opencv.core.Scalar;
 import org.opencv.core.Size;
 import org.opencv.imgproc.Imgproc;
+import org.opencv.imgproc.Moments;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
+import java.util.Vector;
 
 public class ImageFrameProcessorPlugin extends FrameProcessorPlugin {
+
+  private int[] barcodePoint4;
+  private int[] orderCorner;
 
   @Override
   public Object callback(ImageProxy image, Object[] params) {
     // code goes here
     WritableNativeMap map = new WritableNativeMap();
+    ReadableNativeMap config = getConfig(params);
+    ReadableArray pointArray = config.getArray("point");
+    ReadableArray orderCorner = config.getArray("corners");
+    this.barcodePoint4 = new int[] {
+            pointArray.getInt(0),
+            pointArray.getInt(1),
+    };
+
+    this.orderCorner = new int[] {
+            orderCorner.getInt(0),
+            orderCorner.getInt(1),
+            orderCorner.getInt(2),
+            orderCorner.getInt(3),
+
+    };
+
 
     @SuppressLint("UnsafeOptInUsageError")
     Bitmap bitmap = BitmapUtils.getBitmap(image);
@@ -84,7 +113,80 @@ public class ImageFrameProcessorPlugin extends FrameProcessorPlugin {
       }
     }
     Imgproc.drawContours(processMat, contours, largest_contour_index, new Scalar(0, 255, 0, 255), 3);
+
+
+    MatOfPoint2f approxContours = new MatOfPoint2f();
+    MatOfPoint2f cnt = new MatOfPoint2f(contours.get(largest_contour_index).toArray());
+    Imgproc.approxPolyDP(cnt, approxContours, Imgproc.arcLength(cnt, true) * 0.04, true);
+
+    List<Point> sortedPoints = getSortedPoints(approxContours.toList());
+    if(sortedPoints != null) {
+      processMat = Perspective(processMat, sortedPoints);
+    }
+
     return processMat;
+  }
+
+  private Mat Perspective(Mat src, List<Point> points) {
+    Mat result = src.clone();
+    Mat inputMat = new Mat(4, 1, CvType.CV_32FC2);
+    Mat resultMat = new Mat(4, 1, CvType.CV_32FC2);
+
+    Point tl = points.get(0);
+    Point tr = points.get(1);
+    Point br = points.get(2);
+    Point bl = points.get(3);
+
+    Log.i("YASİN TORUN DEBUG",points.toString());
+    Log.i("YASİN TORUN DEBUG",points.get(0).toString());
+
+
+    double widthA = Math.sqrt(Math.pow(br.x - bl.x, 2) + Math.pow(br.y - bl.y, 2));
+    double widthB = Math.sqrt(Math.pow(tr.x - tl.x, 2) + Math.pow(tr.y - tl.y, 2));
+
+    double dw = Math.max(widthA, widthB);
+    int maxWidth = Double.valueOf(dw).intValue();
+
+    double heightA = Math.sqrt(Math.pow(tr.x - br.x, 2) + Math.pow(tr.y - br.y, 2));
+    double heightB = Math.sqrt(Math.pow(tl.x - bl.x, 2) + Math.pow(tl.y - bl.y, 2));
+
+    double dh = Math.max(heightA, heightB);
+    int maxHeight = Double.valueOf(dh).intValue();
+
+
+    Mat doc = new Mat(maxHeight, maxWidth, CvType.CV_8UC4);
+
+    inputMat.put(0, 0, tl.x, tl.y, tr.x, tr.y, br.x, br.y, bl.x, bl.y);
+    resultMat.put(0, 0, 0.0, 0.0, dw, 0.0, dw, dh, 0.0, dh);
+
+    Mat perspectiveTransform = Imgproc.getPerspectiveTransform(inputMat, resultMat);
+    Imgproc.warpPerspective(result, result, perspectiveTransform,
+              doc.size());
+    Core.rotate(result, result, Core.ROTATE_90_COUNTERCLOCKWISE);
+    return result;
+  }
+
+  private List<Point> getSortedPoints(List<Point> points) {
+    List<Point> result = new ArrayList<>();
+    List<OrderedPoint> orderedPoints = new ArrayList<>();
+
+    for(int i = 0; i<points.size(); i++ ) {
+        OrderedPoint op = new OrderedPoint();
+        op.point = points.get(i);
+        op.distance = Math.sqrt((Math.pow(op.point.x - barcodePoint4[0], 2) + Math.pow(op.point.y - barcodePoint4[1], 2)));
+        orderedPoints.add(op);
+    }
+    Collections.sort(orderedPoints, (o1, o2) -> (int) (o1.distance - o2.distance));
+
+    for (int j : this.orderCorner) {
+      try {
+        result.add(orderedPoints.get(j).point);
+      } catch (Exception e) {
+        return null;
+      }
+    }
+
+    return result;
   }
 
   ImageFrameProcessorPlugin() {
@@ -93,6 +195,11 @@ public class ImageFrameProcessorPlugin extends FrameProcessorPlugin {
 }
 
 
+
+class OrderedPoint {
+  public Point point;
+  public double distance;
+}
 
 //  @Override
 //  public Object callback(ImageProxy image, Object[] params) {
