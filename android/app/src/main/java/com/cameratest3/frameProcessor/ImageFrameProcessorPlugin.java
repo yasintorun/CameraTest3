@@ -22,6 +22,8 @@ import org.opencv.core.Mat;
 import org.opencv.core.MatOfPoint;
 import org.opencv.core.MatOfPoint2f;
 import org.opencv.core.Point;
+import org.opencv.core.Rect;
+import org.opencv.core.RotatedRect;
 import org.opencv.core.Scalar;
 import org.opencv.core.Size;
 import org.opencv.imgproc.Imgproc;
@@ -35,14 +37,21 @@ import java.util.Locale;
 import java.util.Vector;
 
 public class ImageFrameProcessorPlugin extends FrameProcessorPlugin {
+  WritableNativeMap map;
 
   private int[] barcodePoint4;
   private int[] orderCorner;
+  private int rows = 20;
+  private int fmtX = 46;
+  private double unitSize;
+  Mat showMat;
+  Size fmtFormSize = new Size(640, 480);
+  private List<RotatedRect> _dotPointRowList;
 
   @Override
   public Object callback(ImageProxy image, Object[] params) {
+    map = new WritableNativeMap();
     // code goes here
-    WritableNativeMap map = new WritableNativeMap();
     ReadableNativeMap config = getConfig(params);
     ReadableArray pointArray = config.getArray("point");
     ReadableArray orderCorner = config.getArray("corners");
@@ -64,6 +73,10 @@ public class ImageFrameProcessorPlugin extends FrameProcessorPlugin {
     Bitmap bitmap = BitmapUtils.getBitmap(image);
 
     Mat contourMat = CropAndPerspective(bitmap);
+    if(contourMat == null) {
+      map.putString("base64", String.valueOf(_dotPointRowList.size()));
+      return map;
+    }
     Bitmap newBitmap = Bitmap.createBitmap(contourMat.cols(), contourMat.rows(), Bitmap.Config.ARGB_8888);
 
     Utils.matToBitmap(contourMat, newBitmap);
@@ -124,7 +137,19 @@ public class ImageFrameProcessorPlugin extends FrameProcessorPlugin {
       processMat = Perspective(processMat, sortedPoints);
     }
 
-    return processMat;
+    showMat = new Mat(fmtFormSize, processMat.type());
+    Imgproc.resize(processMat, showMat, fmtFormSize);
+
+    this.unitSize = (showMat.width() / fmtX);
+
+    _dotPointRowList = new ArrayList<>();
+    _dotPointRowList.clear();
+
+    if(this.findDataDots()) {
+
+      return showMat;
+    }
+    return showMat;
   }
 
   private Mat Perspective(Mat src, List<Point> points) {
@@ -189,11 +214,89 @@ public class ImageFrameProcessorPlugin extends FrameProcessorPlugin {
     return result;
   }
 
+
+  private Boolean findDataDots() {
+    Mat tmpMat = showMat.clone();
+    Core.flip(tmpMat, tmpMat, 0);
+    findRoiDot(tmpMat);
+    Boolean check = false;
+    Collections.sort(_dotPointRowList, (o1, o2) -> (int) (o1.center.y - o2.center.y));
+    if(_dotPointRowList.size() == rows) {
+      check = true;
+    }
+    else {
+      if(_dotPointRowList.size() > rows)
+        _dotPointRowList.clear();
+      check = false;
+    }
+    return check;
+  }
+
+  private void findRoiDot(Mat srcMat) {
+    Rect tmpRect;
+    Point rectPos;
+    double rectHeight, rectWidth;
+    Size rectSize;
+    double posY, posX;
+
+    _dotPointRowList.clear();
+    rectHeight = showMat.height() - 10;
+    rectWidth = this.unitSize * 2;
+    rectSize = new Size(rectWidth, rectHeight);
+    posY = 5;
+    rectPos = new Point(5, posY);
+
+    tmpRect = new Rect(rectPos, rectSize);
+
+    Mat srcMat1 = new Mat(srcMat, tmpRect);
+    save(srcMat1.clone(), "srcMat1");
+
+    List<MatOfPoint> contours = new ArrayList<>();
+    List<MatOfPoint2f> contoursMOP2F = new ArrayList<>();
+    Mat hierarchy = new Mat();
+    Mat grayMat = new Mat();
+
+    Imgproc.cvtColor(srcMat1, grayMat, Imgproc.COLOR_RGB2GRAY);
+    save(grayMat.clone(), "gray");
+    Imgproc.adaptiveThreshold(grayMat, grayMat, 255, Imgproc.ADAPTIVE_THRESH_GAUSSIAN_C, Imgproc.THRESH_BINARY, 75, 30);
+    Imgproc.GaussianBlur(grayMat, grayMat, new Size(5, 5), 3, 0);
+
+    save(grayMat.clone(), "gaus");
+    org.opencv.core.Core.bitwise_not(grayMat, grayMat);
+
+    Mat cannyOutput = grayMat.clone();
+
+    Imgproc.Canny(grayMat, cannyOutput, 100, 200, 5);
+
+
+    save(cannyOutput.clone(), "canny");
+
+    Imgproc.findContours(grayMat, contours, hierarchy, Imgproc.RETR_CCOMP, Imgproc.CHAIN_APPROX_SIMPLE);
+
+    map.putString("contours", String.valueOf(contours.size()));
+
+    for (int i = 0; i < contours.size(); i++) {
+      contoursMOP2F.add(new MatOfPoint2f(contours.get(i).toArray()));
+      RotatedRect boundingBox = Imgproc.minAreaRect(new MatOfPoint2f(contoursMOP2F.get(i)));
+
+      _dotPointRowList.add(boundingBox);
+    }
+  }
+
   ImageFrameProcessorPlugin() {
     super("GetImageData");
   }
-}
 
+  private void save(Mat mat, String name) {
+    Bitmap newBitmap = Bitmap.createBitmap(mat.cols(), mat.rows(), Bitmap.Config.ARGB_8888);
+
+    Utils.matToBitmap(mat, newBitmap);
+
+    String base64 = ImageUtil.convert(newBitmap);
+    map.putString(name, base64);
+  }
+
+}
 
 
 class OrderedPoint {
