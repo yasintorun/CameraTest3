@@ -11,27 +11,25 @@ export default function App() {
   const [frameData, setFrame] = React.useState(null);
   const devices = useCameraDevices();
   const device = devices.back;
-  let t = null;
+  let ok = 0;
   const frameProcessor = useFrameProcessor((frame) => {
     'worklet'
-    // const base64 = GetImageData(frame).base64
-    // REA.runOnJS(setFrame)({imageData: base64});
-    // setFrame({imageData: base64})
-
+    
     const config = {};
     config.template = "{\"ImageParameter\":{\"BarcodeFormatIds\":[\"BF_QR_CODE\"],\"Description\":\"\",\"Name\":\"Settings\"},\"Version\":\"3.0\"}"; //scan qrcode only
     const results = decode(frame, config)
     if (results && results[0]) {
       const r = results[0]
       const point = [r.x4, r.y4]
-      const corners = [1,0, 2,3]
-      const data = GetImageData(frame, {point: point, corners: corners})
-      // const base64 = GetImageData(frame, {point: point, corners: corners})?.base64
-      // console.log(base64)
-      REA.runOnJS(setFrame)({imageData: data.base64});
-      console.log(data.contours)
-      // const frameData = { ...results[0], width: frame.width, height: frame.height, imageData: base64 }
-      // REA.runOnJS(setFrame)(frameData);
+      const corners = [1,0, 2, 3]
+      const check = [2, 11]
+      const data = GetImageData(frame, {point: point, corners: corners, check: check, ok: ok})
+      console.log(data.co)
+      ok = data.base64?.length > 10 ? 0 : 1
+      if(data?.base64) {
+        REA.runOnJS(setFrame)({...data});
+        // console.log(data?.contours)
+      }
     }
   }, [])
   React.useEffect(() => {
@@ -53,7 +51,7 @@ export default function App() {
               frameProcessor={frameProcessor}
               frameProcessorFps={1}
             />
-            <Image source={{ uri: `data:image/jpeg;base64,${frameData?.imageData}` }} style={{ width: 340, height: 255, resizeMode: "contain" }} />
+            <Image source={{ uri: `data:image/jpeg;base64,${frameData?.sect}` }} style={{ width: 345, height: 180, resizeMode: "contain" }} />
           </>
         )}
     </SafeAreaView>
@@ -70,7 +68,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   camera: {
-    width: 340,
-    height: 255,
+    width: 345,
+    height: 300,
   }
 });

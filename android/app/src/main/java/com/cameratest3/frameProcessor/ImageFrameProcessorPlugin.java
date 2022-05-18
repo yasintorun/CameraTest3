@@ -22,7 +22,9 @@ import org.opencv.core.Mat;
 import org.opencv.core.MatOfPoint;
 import org.opencv.core.MatOfPoint2f;
 import org.opencv.core.Point;
+import org.opencv.core.Range;
 import org.opencv.core.Rect;
+import org.opencv.core.Rect2d;
 import org.opencv.core.RotatedRect;
 import org.opencv.core.Scalar;
 import org.opencv.core.Size;
@@ -44,25 +46,35 @@ import java.util.Vector;
 public class ImageFrameProcessorPlugin extends FrameProcessorPlugin {
   WritableNativeMap map;
 
+  private int[] checkPoint;
+
   private int[] barcodePoint4;
   private int[] orderCorner;
   private int rows = 20;
   private int fmtX = 46;
-  private double unitSize;
+  private double unitSize, unitArea;
   Mat showMat;
-  Size fmtFormSize = new Size(640, 480);
+  Size fmtFormSize = new Size(640, 334);
   private List<RotatedRect> _dotPointRowList;
+  private List<Rect> rowRects, colRects;
 
   @Override
   public Object callback(ImageProxy image, Object[] params) {
     map = new WritableNativeMap();
-    // code goes here
     ReadableNativeMap config = getConfig(params);
+    if(config.getInt("ok") == 1) return map;
+    // code goes here
     ReadableArray pointArray = config.getArray("point");
     ReadableArray orderCorner = config.getArray("corners");
+    ReadableArray checkArray = config.getArray("check");
     this.barcodePoint4 = new int[] {
             pointArray.getInt(0),
             pointArray.getInt(1),
+    };
+
+    this.checkPoint = new int[] {
+            checkArray.getInt(0),
+            checkArray.getInt(1),
     };
 
     this.orderCorner = new int[] {
@@ -130,7 +142,7 @@ public class ImageFrameProcessorPlugin extends FrameProcessorPlugin {
         largest_contour_index = i;
       }
     }
-    Imgproc.drawContours(processMat, contours, largest_contour_index, new Scalar(0, 255, 0, 255), 3);
+    //Imgproc.drawContours(processMat, contours, largest_contour_index, new Scalar(0, 255, 0, 255), 3);
 
     MatOfPoint2f approxContours = new MatOfPoint2f();
     MatOfPoint2f cnt = new MatOfPoint2f(contours.get(largest_contour_index).toArray());
@@ -142,18 +154,19 @@ public class ImageFrameProcessorPlugin extends FrameProcessorPlugin {
     }
 
     showMat = new Mat(fmtFormSize, processMat.type());
+    save(showMat.clone(), "nonresize");
     Imgproc.resize(processMat, showMat, fmtFormSize);
 
     this.unitSize = (showMat.width() / fmtX);
+    map.putString("unitsize", String.valueOf(this.unitSize));
 
     _dotPointRowList = new ArrayList<>();
-    _dotPointRowList.clear();
 
     if(this.findDataDots()) {
-
+      this.readFmtPaper();
       return showMat;
     }
-    return showMat;
+    return null;
   }
 
   private Mat Perspective(Mat src, List<Point> points) {
@@ -221,17 +234,12 @@ public class ImageFrameProcessorPlugin extends FrameProcessorPlugin {
 
   private Boolean findDataDots() {
     Mat tmpMat = showMat.clone();
-    Core.flip(tmpMat, tmpMat, 0);
+    //Core.flip(tmpMat, tmpMat, 0);
     findRoiDot(tmpMat);
-    Boolean check = false;
-    Collections.sort(_dotPointRowList, (o1, o2) -> (int) (o1.center.y - o2.center.y));
+    boolean check = false;
+    Collections.sort(_dotPointRowList, (o1, o2) -> (int) (o2.center.y - o1.center.y));
     if(_dotPointRowList.size() == rows) {
       check = true;
-    }
-    else {
-      if(_dotPointRowList.size() > rows)
-        _dotPointRowList.clear();
-      check = false;
     }
     return check;
   }
@@ -267,7 +275,6 @@ public class ImageFrameProcessorPlugin extends FrameProcessorPlugin {
 
       _dotPointRowList.add(boundingBox);
     }
-    this.readFmtPaper();
   }
 
   ImageFrameProcessorPlugin() {
@@ -284,24 +291,104 @@ public class ImageFrameProcessorPlugin extends FrameProcessorPlugin {
   }
 
   private void readFmtPaper() {
-    List<Rect> rowRects = new ArrayList<>();
+    this.rowRects = new ArrayList<>();
     for (int i = 0; i< this._dotPointRowList.size(); i++) {
       Point point = new Point(0, _dotPointRowList.get(i).center.y - (this.unitSize * 0.5 * 0.5) + 5);
       Rect rowRect = new Rect(point, new Size(showMat.width(), this.unitSize * 0.5));
       rowRects.add(rowRect);
-      Imgproc.rectangle(this.showMat, rowRect.tl(), rowRect.br(), new Scalar(0, 255, 0, 255), 1);
-      save(this.showMat.clone(), "row");
+      //Imgproc.rectangle(this.showMat, rowRect.tl(), rowRect.br(), new Scalar(0, 255, 0, 255), 1);
     }
-
-    List<Rect> colRects = new ArrayList<>();
+//    Imgproc.rectangle(this.showMat, rowRects.get(0).tl(), rowRects.get(0).br(), new Scalar(0, 255, 0, 255), 1);
+//    Imgproc.rectangle(this.showMat, rowRects.get(rowRects.size() -1).tl(), rowRects.get(rowRects.size() -1).br(), new Scalar(0, 255, 0, 255), 1);
+    this.colRects = new ArrayList<>();
     Point refPointOffset = new Point((unitSize * 0.1) + (unitSize * 2.5), 0);
     for(int i = 0; i<this.fmtX; i++) {
       double tmpX = (unitSize*i) + refPointOffset.x + unitSize * 0.25;
       Rect colRect = new Rect(new Point(tmpX, 0), new Size((unitSize*0.5), showMat.height()));
       colRects.add(colRect);
-      Imgproc.rectangle(this.showMat, colRect.tl(), colRect.br(), new Scalar(0, 0, 255, 255), 1);
-      save(this.showMat.clone(), "col");
+      //Imgproc.rectangle(this.showMat, colRect.tl(), colRect.br(), new Scalar(0, 0, 255, 255), 1);
     }
+    this.unitArea = rowRects.get(0).height * colRects.get(0).width;
+
+
+    Mat hierarchy = new Mat();
+    Mat grayMat = new Mat();
+
+    Imgproc.cvtColor(this.showMat, grayMat, Imgproc.COLOR_RGB2GRAY);
+    Imgproc.adaptiveThreshold(grayMat, grayMat, 255, Imgproc.ADAPTIVE_THRESH_GAUSSIAN_C, Imgproc.THRESH_BINARY, 75, 30);
+    save(grayMat.clone(), "gray");
+    Imgproc.GaussianBlur(grayMat, grayMat, new Size(5, 5), 3, 0);
+    save(grayMat.clone(), "gaus");
+    if(this.checkPoint[0] == 1)
+      org.opencv.core.Core.bitwise_or(this.showMat, grayMat, grayMat);
+    save(grayMat.clone(), "or");
+
+
+    //Canny gerek yok
+//    Mat cannyOutput = grayMat.clone();
+//    Imgproc.Canny(grayMat, cannyOutput, 100, 200, 5);
+
+    List<MatOfPoint> contours = new ArrayList<MatOfPoint>();
+    Imgproc.findContours(grayMat, contours, hierarchy, Imgproc.RETR_CCOMP, Imgproc.CHAIN_APPROX_SIMPLE);
+
+    // Her bir kesişimleri aldık.
+    // içerisi dolu mu (siyah) boş mu(beyaz) kontrolü yapmak gerekiyor.
+    // Kare kontrolü yaptıktan sonra
+
+
+//    Point rowTl = rowRects.get(rowRects.size() - 1).tl();
+//    Point rowBr = rowRects.get(0).br();
+//    Point colTl = colRects.get(0).tl();
+//    Point colBr = colRects.get(colRects.size() - 1).br();
+//    for(int i = 0; i<contours.size(); i++) {
+//      Rect boundingBox = Imgproc.minAreaRect(new MatOfPoint2f(contours.get(i).toArray())).boundingRect();
+//      if(boundingBox.tl().x < colTl.x
+//        || boundingBox.br().x > colBr.x + 5
+//        || boundingBox.tl().y < rowTl.y + 5
+//        || boundingBox.br().y > rowBr.y
+//      ) {
+//        contours.remove(i);
+//      }
+//    }
+    Mat drawConMat = this.showMat.clone();
+    for(int i = 0; i < contours.size(); i++) {
+      Rect boundingBox = Imgproc.minAreaRect(new MatOfPoint2f(contours.get(i).toArray())).boundingRect();
+      Imgproc.rectangle(drawConMat, boundingBox.tl(), boundingBox.br(), new Scalar(255, 0, 0, 255), 1);
+//      Imgproc.drawContours(drawConMat, contours, i, new Scalar(255,0,0,255),1,Imgproc.LINE_AA);
+    }
+
+    Mat srcc = this.showMat.clone();
+    int co = 0;
+    for(int i = rowRects.size() - 1; i>rowRects.size() - 3; i--) {
+      for(int j = 9; j<12; j++) {
+        Rect rect = contain(grayMat, i, j);
+        Imgproc.rectangle(drawConMat, rect.tl(), rect.br(), new Scalar(0, 255, 0, 255), 1);
+        for(int k = 0; k<contours.size(); k++) {
+          Rect boundingBox = Imgproc.minAreaRect(new MatOfPoint2f(contours.get(k).toArray())).boundingRect();
+//          Imgproc.rectangle(drawConMat, boundingBox.tl(), boundingBox.br(), new Scalar(255, 0, 0, 255), 1);
+//          Imgproc.rectangle(srcc, boundingBox.tl(), boundingBox.br(), new Scalar(255, 0, 0, 255), 1);
+          boolean isIntersect = this.intersect3(rect, boundingBox);
+          if(isIntersect) {
+            co += 1;
+            Imgproc.rectangle(drawConMat, boundingBox.tl(), boundingBox.br(), new Scalar(0, 0, 255, 255), 1);
+          }
+        }
+      }
+    }
+    map.putString("co", String.valueOf(co));
+    save(drawConMat.clone(), "sect");
+    save(srcc.clone(), "srcc");
+
+//    RotatedRect boundingBox = Imgproc.minAreaRect(new MatOfPoint2f(contours.get(0).toArray()));
+
+//    Mat m = new Mat()
+//    Core.bitwise_and(this.showMat, );
+//
+//    Core.countNonZero();
+
+
+//    Imgproc.rectangle(this.showMat, colRects.get(0).tl(), colRects.get(0).br(), new Scalar(0, 0, 255, 255), 1);
+//    Imgproc.rectangle(this.showMat, colRects.get(colRects.size() - 1).tl(), colRects.get(colRects.size() -1).br(), new Scalar(0, 0, 255, 255), 1);
 //    double unitArea = rowRects.get(0).height * colRects.get(0).width;
 //
 //    Map<Integer, List<RotatedRect>> rowContours = new HashMap<>();
@@ -331,18 +418,35 @@ public class ImageFrameProcessorPlugin extends FrameProcessorPlugin {
 
   }
 
+  boolean intersect3 (Rect a, Rect b) {
+    return (  (  a.tl().x  <  b.br().x  )  &&  (   a.br().x   >  b.tl().x  )  &&
+            (  a.tl().y  <  b.br().y  )  &&
+            (  a.br().y  >  b.tl().y  )  );
+  }
+
+  boolean intersect2(Rect a, Rect b) {
+    boolean noOverlap = a.tl().x > b.br().x ||
+            b.tl().x > a.br().x ||
+            a.tl().y > b.br().y ||
+            b.tl().y > a.br().y;
+
+    return !noOverlap;
+  }
+
   private List<MatOfPoint> findContours(Mat srcMat) {
     Mat hierarchy = new Mat();
     Mat grayMat = new Mat();
 
     Imgproc.cvtColor(srcMat, grayMat, Imgproc.COLOR_RGB2GRAY);
     Imgproc.adaptiveThreshold(grayMat, grayMat, 255, Imgproc.ADAPTIVE_THRESH_GAUSSIAN_C, Imgproc.THRESH_BINARY, 75, 30);
+    save(grayMat.clone(), "gray");
     Imgproc.GaussianBlur(grayMat, grayMat, new Size(5, 5), 3, 0);
+    save(grayMat.clone(), "gaus");
     org.opencv.core.Core.bitwise_not(grayMat, grayMat);
 
     //Canny gerek yok
-    Mat cannyOutput = grayMat.clone();
-    Imgproc.Canny(grayMat, cannyOutput, 100, 200, 5);
+//    Mat cannyOutput = grayMat.clone();
+//    Imgproc.Canny(grayMat, cannyOutput, 100, 200, 5);
 
     List<MatOfPoint> contours = new ArrayList<MatOfPoint>();
     Imgproc.findContours(grayMat, contours, hierarchy, Imgproc.RETR_CCOMP, Imgproc.CHAIN_APPROX_SIMPLE);
@@ -355,6 +459,23 @@ public class ImageFrameProcessorPlugin extends FrameProcessorPlugin {
     row = row < 0 ? 0 : row;
     double pointY = _dotPointRowList.get((int) row).center.y + refPointOffset.y + 5;
     return new Point(pointDistanceX, pointY);
+  }
+
+  private Rect contain(Mat srcMat, int row, int col) {
+    return this.intersectWith(this.rowRects.get(row), this.colRects.get(col));
+  }
+
+
+  private boolean intersect(Rect r1, Rect r2) {
+    return (r1.x < r2.x + r2.width &&
+            r1.x + r1.width > r2.x &&
+            r1.y < r2.y + r2.height &&
+            r1.y + r1.height > r2.y);
+  }
+
+
+  Rect intersectWith(Rect a, Rect b) {
+    return  new Rect(new Point(b.x, a.y), new Size(b.width, a.height));
   }
 
 }
