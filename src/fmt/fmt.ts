@@ -1,36 +1,38 @@
+import { FmtRefType } from "./fmtEnums";
+
 export class Fmt {
-    public examName: string;
-    public sessionName: string;
-    public hasBrans: string;
-    public bransId: number;
+    public examName!: string;
+    public sessionName!: string;
+    public hasBrans!: string;
+    public bransId!: number;
     public static CELLDATARAW: Map<string, number>;
 
-    public radius: string;
-    public unitSize: number;
+    public radius!: string;
+    public unitSize!: number;
 
-    public cornerOrder: number[];
-    
-    private raw: string;
+    public orderCorner!: number[];
+    public refType!: FmtRefType;
+    private raw!: string;
 
-    public leftRectWidth: number;
-    public dotRectHeight: number;
-    public studentAnswers: string;
-     
-    private dimentions: number[];
-    private columns: number;
-    private rows: number;
+    public leftRectWidth!: number;
+    public dotRectHeight!: number;
+    public studentAnswers!: string;
+
+    private dimensions!: number[];
+    private columns!: number;
+    private rows!: number;
     
-    public questionAnswersVal: number[];
-    public questionAnswers: string[];
+    public questionAnswersVal!: number[];
+    public questionAnswers!: string[];
     
-    public answerKeys: string;
+    public answerKeys!: string;
     public isMissingMarks: boolean = false;
 
     get Raw(): string {return this.raw;}
     set Raw(raw:string) {this.raw = raw;}
     
-    get Dimentions(): number[] {return this.dimentions;}
-    set Dimentions(dimentions: number[]) {this.dimentions = dimentions;}
+    get Dimensions(): number[] {return this.dimensions;}
+    set Dimensions(dimensions: number[]) {this.dimensions = dimensions;}
 
     get Columns(): number {return this.columns;}
     set Columns(columns: number) {this.columns = columns;}
@@ -38,13 +40,13 @@ export class Fmt {
     get Rows(): number {return this.rows;}
     set Rows(rows: number) {this.rows = rows;}
 
-    public isVertical: boolean;
+    public isVertical!: boolean;
 
     //constructors
-    public Fmt(raw: string) {
+    public constructor (raw: string) {
         this.isMissingMarks = false;
         this.createCellDataRAW()
-        this.raw = raw;
+        // this.raw = raw;
     }
 
     private createCellDataRAW(): void
