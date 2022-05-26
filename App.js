@@ -6,6 +6,7 @@ import * as REA from 'react-native-reanimated';
 import { GetImageData } from './src/plugins/GetImageData'
 import { base64ToArrayBuffer } from './src/utils/Converters';
 import { FmtManager, FmtModelType } from './src/fmt/fmtManager';
+import { useEffect } from 'react/cjs/react.production.min';
 
 const fmt =
 `20=43=03=D=*= =/DIMENSIONS=46,24,0//ORDER=1032/=
@@ -24,7 +25,6 @@ export default function App() {
 
   const devices = useCameraDevices();
   const device = devices.back;
-  let ok = 0;
   const frameProcessor = useFrameProcessor((frame) => {
     'worklet'    
     const config = {};
@@ -33,16 +33,10 @@ export default function App() {
     if (results && results[0] && fmtModel) {
       const r = results[0]
       const point = [r.x4, r.y4]
-      const corners = [1,0, 2, 3]
-      const check = [2, 11]
-      console.log(typeof fmtModel.fmt.orderCorner[0])
-      const data = GetImageData(frame, {point: point, corners: corners, check: check, ok: ok, fmt: {...fmtModel.fmt}})
-      console.log(data.fmtt)
-      ok = data.base64?.length > 10 ? 0 : 1
-      if(data?.base64) {
-        REA.runOnJS(setFrame)({...data});
-        // console.log(data?.contours)
-      }
+      const data = GetImageData(frame, {point: point, ok: 2, fmt: {...fmtModel.fmt}})
+      console.log(Object.keys(data))
+      // setFrame({...data})
+      REA.runOnJS(setFrame)({...data});
     }
   }, [fmtModel])
 
@@ -56,7 +50,7 @@ export default function App() {
     setFmtModel(_fmtModel)
     console.log(_fmtModel)
   }, []);
-
+  console.log(frameData?.sorted)
   return (
     <SafeAreaView style={styles.container}>
       {device != null &&
@@ -69,7 +63,7 @@ export default function App() {
               frameProcessor={frameProcessor}
               frameProcessorFps={1}
             />
-            <Image source={{ uri: `data:image/jpeg;base64,${frameData?.sect}` }} style={{ width: 345, height: 180, resizeMode: "contain" }} />
+            <Image source={{ uri: `data:image/jpeg;base64,${frameData?.process}` }} style={{ width: 345, height: 180, resizeMode: "contain" }} />
           </>
         )}
     </SafeAreaView>

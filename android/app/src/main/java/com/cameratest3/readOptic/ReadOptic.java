@@ -1,11 +1,16 @@
 package com.cameratest3.readOptic;
 
 import android.graphics.Bitmap;
+import android.util.Log;
 
+import androidx.annotation.RequiresPermission;
+
+import com.cameratest3.ImageUtil;
 import com.cameratest3.OpenCV.ImOpenCV;
 import com.cameratest3.models.Fmt;
 import com.facebook.react.bridge.ReadableArray;
 import com.facebook.react.bridge.ReadableNativeMap;
+import com.facebook.react.bridge.WritableNativeMap;
 
 import org.opencv.android.Utils;
 import org.opencv.core.Core;
@@ -21,10 +26,11 @@ import org.opencv.core.Size;
 import org.opencv.imgproc.Imgproc;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
-public class ReadOpticModule {
+public class ReadOptic {
     private Fmt fmt;
     private ImOpenCV imOpenCV;
     private Point barcode;
@@ -32,15 +38,22 @@ public class ReadOpticModule {
 
     private List<RotatedRect> dotPointRowList;
     private List<Rect> rowRects, colRects;
+    WritableNativeMap map;
 
-    public ReadOpticModule(ReadableNativeMap readableNativeMap) {
+    private static ReadOptic instance = null;
+    public static ReadOptic getInstance(ReadableNativeMap readableNativeMap) {
+        if(ReadOptic.instance == null) {
+            ReadOptic.instance = new ReadOptic(readableNativeMap);
+        }
+        return ReadOptic.instance;
+    }
+
+    public ReadOptic(ReadableNativeMap readableNativeMap) {
         this.setFmt(readableNativeMap);
         this.setBarcode(readableNativeMap);
 
-        this.showMat = new Mat(this.fmt.formSize, CvType.CV_8UC1);
-        this.fmt.unitSize = (this.showMat.width() / fmt.dimensions[0]);
-
         this.imOpenCV = new ImOpenCV();
+        this.map = new WritableNativeMap();
     }
 
     //Fmt
@@ -73,13 +86,28 @@ public class ReadOpticModule {
         Imgproc.approxPolyDP(cnt, approxContours, Imgproc.arcLength(cnt, true) * 0.04, true);
 
         List<Point> sortedPoints = imOpenCV.getSortedPoints(approxContours.toList(), this.barcode, this.fmt.orderCorner);
-
         if(sortedPoints == null) {
             return false;
         }
-        processMat = imOpenCV.perspective(processMat, sortedPoints, Core.ROTATE_90_COUNTERCLOCKWISE);
+        map.putString("sorted", Arrays.toString(sortedPoints.toArray()));
 
+        processMat = imOpenCV.perspective2(processMat, sortedPoints);
+
+
+        Core.rotate(processMat, processMat, Core.ROTATE_90_COUNTERCLOCKWISE);
+
+        save(processMat, "process");
+
+        Log.d("TEST TEST TEST", "runReader: YASIN TORUN -----  " + this.fmt.toString());
+
+
+        this.showMat = new Mat(this.fmt.formSize, CvType.CV_8UC1);
+        this.fmt.unitSize = (this.showMat.width() / fmt.dimensions[0]);
+
+        save(showMat.clone(), "once");
         Imgproc.resize(processMat, this.showMat, this.fmt.formSize);
+
+        save(showMat, "after");
 
         dotPointRowList = new ArrayList<>();
 
@@ -89,6 +117,12 @@ public class ReadOpticModule {
         }
 
         return true;
+    }
+
+    public Bitmap getResult() {
+        Bitmap newBitmap = Bitmap.createBitmap(this.showMat.cols(), this.showMat.rows(), Bitmap.Config.ARGB_8888);
+        Utils.matToBitmap(this.showMat, newBitmap);
+        return newBitmap;
     }
 
     public void readPanel() {
@@ -127,13 +161,26 @@ public class ReadOpticModule {
     private boolean findDataDots() {
         Mat tmpMat = this.showMat.clone();
         //Core.flip(tmpMat, tmpMat, 0);
-        imOpenCV.findRoiDot(tmpMat, this.fmt.unitSize);
+        this.dotPointRowList = imOpenCV.findRoiDot(tmpMat, this.fmt.unitSize);
         boolean check = false;
         Collections.sort(dotPointRowList, (o1, o2) -> (int) (o2.center.y - o1.center.y));
         if(dotPointRowList.size() == this.fmt.rows) {
             check = true;
         }
         return check;
+    }
+
+    public WritableNativeMap getMap() {
+        return this.map;
+    }
+
+    private void save(Mat mat, String name) {
+        Bitmap newBitmap = Bitmap.createBitmap(mat.cols(), mat.rows(), Bitmap.Config.ARGB_8888);
+
+        Utils.matToBitmap(mat, newBitmap);
+
+        String base64 = ImageUtil.convert(newBitmap);
+        map.putString(name, base64);
     }
 
 }

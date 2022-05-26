@@ -1,5 +1,7 @@
 package com.cameratest3.OpenCV;
 
+import android.util.Log;
+
 import com.facebook.react.bridge.ReactMethod;
 
 import org.opencv.core.Core;
@@ -53,6 +55,45 @@ public class ImOpenCV {
         return result;
     }
 
+    public Mat perspective2(Mat src, List<Point> points) {
+
+        double ratio = src.size().height / 500;
+        int height = Double.valueOf(src.size().height / ratio).intValue();
+        int width = Double.valueOf(src.size().width / ratio).intValue();
+
+        Point tl = points.get(0);
+        Point tr = points.get(1);
+        Point br = points.get(2);
+        Point bl = points.get(3);
+
+        double widthA = Math.sqrt(Math.pow(br.x - bl.x, 2) + Math.pow(br.y - bl.y, 2));
+        double widthB = Math.sqrt(Math.pow(tr.x - tl.x, 2) + Math.pow(tr.y - tl.y, 2));
+
+        double dw = Math.max(widthA, widthB) * ratio;
+        int maxWidth = Double.valueOf(dw).intValue();
+
+        double heightA = Math.sqrt(Math.pow(tr.x - br.x, 2) + Math.pow(tr.y - br.y, 2));
+        double heightB = Math.sqrt(Math.pow(tl.x - bl.x, 2) + Math.pow(tl.y - bl.y, 2));
+
+        double dh = Math.max(heightA, heightB) * ratio;
+        int maxHeight = Double.valueOf(dh).intValue();
+
+        Mat doc = new Mat(maxHeight, maxWidth, CvType.CV_8UC4);
+
+        Mat src_mat = new Mat(4, 1, CvType.CV_32FC2);
+        Mat dst_mat = new Mat(4, 1, CvType.CV_32FC2);
+
+        src_mat.put(0, 0, tl.x * ratio, tl.y * ratio, tr.x * ratio, tr.y * ratio, br.x * ratio, br.y * ratio,
+                bl.x * ratio, bl.y * ratio);
+        dst_mat.put(0, 0, 0.0, 0.0, dw, 0.0, dw, dh, 0.0, dh);
+
+        Mat m = Imgproc.getPerspectiveTransform(src_mat, dst_mat);
+
+        Imgproc.warpPerspective(src, doc, m, doc.size());
+
+        return doc;
+    }
+
     public List<MatOfPoint> findContours(Mat srcMat, boolean isCannyActive, String bitwiseMode) {
         Mat hierarchy = new Mat();
         Mat grayMat = new Mat();
@@ -80,6 +121,11 @@ public class ImOpenCV {
 
         List<MatOfPoint> contours = new ArrayList<MatOfPoint>();
         Imgproc.findContours(output, contours, hierarchy, Imgproc.RETR_CCOMP, Imgproc.CHAIN_APPROX_SIMPLE);
+
+        hierarchy.release();
+        grayMat.release();
+        output.release();
+
         return contours;
     }
 
@@ -114,7 +160,6 @@ public class ImOpenCV {
         List<MatOfPoint2f> contoursMOP2F = new ArrayList<>();
         contours = this.findContours(srcMat1, false, "not");
 
-
         for (int i = 0; i < contours.size(); i++) {
             contoursMOP2F.add(new MatOfPoint2f(contours.get(i).toArray()));
             RotatedRect boundingBox = Imgproc.minAreaRect(new MatOfPoint2f(contoursMOP2F.get(i)));
@@ -142,6 +187,8 @@ public class ImOpenCV {
             try {
                 result.add(orderedPoints.get(j).point);
             } catch (Exception e) {
+                e.printStackTrace();
+                Log.i("ERROR", "getSortedPoints: ERROR YASIN TORUN" + e.getLocalizedMessage());
                 return null;
             }
         }

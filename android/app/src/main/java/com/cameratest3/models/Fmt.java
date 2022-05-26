@@ -45,7 +45,7 @@ public class Fmt {
                     dimensions[i] = dimensionsArray.getInt(i);
                 }
             }
-            this.formSize = new Size(Fmt.DIMENSION, Fmt.DIMENSION * (dimensions[1] / dimensions[0]));
+            this.formSize = new Size(Fmt.DIMENSION, Math.round(Fmt.DIMENSION * ((double)dimensions[1] / dimensions[0])));
         }
         catch (Exception ignored) {}
     }
@@ -56,7 +56,7 @@ public class Fmt {
         if(this.orderCorner == null) {
             return String.format("Rows: %d\tCols: %d", this.rows, this.columns);
         }
-        return String.format("Rows: %d\tCols: %d\tOrderCorner: %s\tDimensions: %s\tUnitSize: %d\tUnitArea: %s",
-                this.rows, this.columns, Arrays.toString(this.orderCorner), Arrays.toString(this.dimensions), this.unitSize, this.unitArea);
+        return String.format("Rows: %d\tCols: %d\tOrderCorner: %s\tDimensions: %s\tUnitSize: %d\tUnitArea: %s\tFormSize: %s",
+                this.rows, this.columns, Arrays.toString(this.orderCorner), Arrays.toString(this.dimensions), this.unitSize, this.unitArea, this.formSize.toString());
     }
 }
