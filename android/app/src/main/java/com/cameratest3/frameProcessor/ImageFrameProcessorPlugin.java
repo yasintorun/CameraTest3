@@ -8,6 +8,7 @@ import android.os.Build;
 import android.os.Debug;
 import android.util.Log;
 
+import com.cameratest3.models.Fmt;
 import com.facebook.react.bridge.ReadableArray;
 import com.facebook.react.bridge.WritableNativeMap;
 import com.facebook.react.bridge.WritableNativeArray;
@@ -45,14 +46,11 @@ import java.util.Vector;
 
 public class ImageFrameProcessorPlugin extends FrameProcessorPlugin {
   WritableNativeMap map;
+  Fmt fmt;
 
   private int[] checkPoint;
 
   private int[] barcodePoint4;
-  private int[] orderCorner;
-  private int rows = 20;
-  private int fmtX = 46;
-  private double unitSize, unitArea;
   Mat showMat;
   Size fmtFormSize = new Size(640, 334);
   private List<RotatedRect> _dotPointRowList;
@@ -63,9 +61,19 @@ public class ImageFrameProcessorPlugin extends FrameProcessorPlugin {
     map = new WritableNativeMap();
     ReadableNativeMap config = getConfig(params);
     if(config.getInt("ok") == 1) return map;
+    ReadableNativeMap fmtReadableMap = config.getMap("fmt");
+    if(fmt == null) {
+      if(fmtReadableMap != null) {
+        fmt = new Fmt(fmtReadableMap);
+      }
+    }
+    else {
+      map.putString("fmtt", fmt.toString());
+      map.putString("fm", fmtReadableMap.toString());
+    }
+    fmtFormSize.height = Math.round(fmtFormSize.width * (fmt.dimensions[1] / fmt.dimensions[0]));
     // code goes here
     ReadableArray pointArray = config.getArray("point");
-    ReadableArray orderCorner = config.getArray("corners");
     ReadableArray checkArray = config.getArray("check");
     this.barcodePoint4 = new int[] {
             pointArray.getInt(0),
@@ -76,15 +84,6 @@ public class ImageFrameProcessorPlugin extends FrameProcessorPlugin {
             checkArray.getInt(0),
             checkArray.getInt(1),
     };
-
-    this.orderCorner = new int[] {
-            orderCorner.getInt(0),
-            orderCorner.getInt(1),
-            orderCorner.getInt(2),
-            orderCorner.getInt(3),
-
-    };
-
 
     @SuppressLint("UnsafeOptInUsageError")
     Bitmap bitmap = BitmapUtils.getBitmap(image);
@@ -142,7 +141,6 @@ public class ImageFrameProcessorPlugin extends FrameProcessorPlugin {
         largest_contour_index = i;
       }
     }
-    //Imgproc.drawContours(processMat, contours, largest_contour_index, new Scalar(0, 255, 0, 255), 3);
 
     MatOfPoint2f approxContours = new MatOfPoint2f();
     MatOfPoint2f cnt = new MatOfPoint2f(contours.get(largest_contour_index).toArray());
@@ -154,11 +152,9 @@ public class ImageFrameProcessorPlugin extends FrameProcessorPlugin {
     }
 
     showMat = new Mat(fmtFormSize, processMat.type());
-    save(showMat.clone(), "nonresize");
     Imgproc.resize(processMat, showMat, fmtFormSize);
 
-    this.unitSize = (showMat.width() / fmtX);
-    map.putString("unitsize", String.valueOf(this.unitSize));
+    this.fmt.unitSize = (showMat.width() / fmt.dimensions[0]);
 
     _dotPointRowList = new ArrayList<>();
 
@@ -178,10 +174,6 @@ public class ImageFrameProcessorPlugin extends FrameProcessorPlugin {
     Point tr = points.get(1);
     Point br = points.get(2);
     Point bl = points.get(3);
-
-    Log.i("YASİN TORUN DEBUG",points.toString());
-    Log.i("YASİN TORUN DEBUG",points.get(0).toString());
-
 
     double widthA = Math.sqrt(Math.pow(br.x - bl.x, 2) + Math.pow(br.y - bl.y, 2));
     double widthB = Math.sqrt(Math.pow(tr.x - tl.x, 2) + Math.pow(tr.y - tl.y, 2));
@@ -220,7 +212,7 @@ public class ImageFrameProcessorPlugin extends FrameProcessorPlugin {
     }
     Collections.sort(orderedPoints, (o1, o2) -> (int) (o1.distance - o2.distance));
 
-    for (int j : this.orderCorner) {
+    for (int j : this.fmt.orderCorner) {
       try {
         result.add(orderedPoints.get(j).point);
       } catch (Exception e) {
@@ -238,7 +230,7 @@ public class ImageFrameProcessorPlugin extends FrameProcessorPlugin {
     findRoiDot(tmpMat);
     boolean check = false;
     Collections.sort(_dotPointRowList, (o1, o2) -> (int) (o2.center.y - o1.center.y));
-    if(_dotPointRowList.size() == rows) {
+    if(_dotPointRowList.size() == fmt.rows) {
       check = true;
     }
     return check;
@@ -253,7 +245,7 @@ public class ImageFrameProcessorPlugin extends FrameProcessorPlugin {
 
     _dotPointRowList.clear();
     rectHeight = showMat.height() - 10;
-    rectWidth = this.unitSize * 2;
+    rectWidth = this.fmt.unitSize * 2;
     rectSize = new Size(rectWidth, rectHeight);
     posY = 5;
     rectPos = new Point(5, posY);
@@ -293,22 +285,22 @@ public class ImageFrameProcessorPlugin extends FrameProcessorPlugin {
   private void readFmtPaper() {
     this.rowRects = new ArrayList<>();
     for (int i = 0; i< this._dotPointRowList.size(); i++) {
-      Point point = new Point(0, _dotPointRowList.get(i).center.y - (this.unitSize * 0.5 * 0.5) + 5);
-      Rect rowRect = new Rect(point, new Size(showMat.width(), this.unitSize * 0.5));
+      Point point = new Point(0, _dotPointRowList.get(i).center.y - (this.fmt.unitSize * 0.5 * 0.5) + 5);
+      Rect rowRect = new Rect(point, new Size(showMat.width(), this.fmt.unitSize * 0.5));
       rowRects.add(rowRect);
       //Imgproc.rectangle(this.showMat, rowRect.tl(), rowRect.br(), new Scalar(0, 255, 0, 255), 1);
     }
 //    Imgproc.rectangle(this.showMat, rowRects.get(0).tl(), rowRects.get(0).br(), new Scalar(0, 255, 0, 255), 1);
 //    Imgproc.rectangle(this.showMat, rowRects.get(rowRects.size() -1).tl(), rowRects.get(rowRects.size() -1).br(), new Scalar(0, 255, 0, 255), 1);
     this.colRects = new ArrayList<>();
-    Point refPointOffset = new Point((unitSize * 0.1) + (unitSize * 2.5), 0);
-    for(int i = 0; i<this.fmtX; i++) {
-      double tmpX = (unitSize*i) + refPointOffset.x + unitSize * 0.25;
-      Rect colRect = new Rect(new Point(tmpX, 0), new Size((unitSize*0.5), showMat.height()));
+    Point refPointOffset = new Point((this.fmt.unitSize * 0.1) + (this.fmt.unitSize * 2.5), 0);
+    for(int i = 0; i<this.fmt.dimensions[0]; i++) {
+      double tmpX = (this.fmt.unitSize*i) + refPointOffset.x + this.fmt.unitSize * 0.25;
+      Rect colRect = new Rect(new Point(tmpX, 0), new Size((this.fmt.unitSize*0.5), showMat.height()));
       colRects.add(colRect);
       //Imgproc.rectangle(this.showMat, colRect.tl(), colRect.br(), new Scalar(0, 0, 255, 255), 1);
     }
-    this.unitArea = rowRects.get(0).height * colRects.get(0).width;
+    this.fmt.unitArea = rowRects.get(0).height * colRects.get(0).width;
 
 
     Mat hierarchy = new Mat();
@@ -454,8 +446,8 @@ public class ImageFrameProcessorPlugin extends FrameProcessorPlugin {
   }
 
   private Point getPointByCellAddress(double col, double row) {
-    Point refPointOffset = new Point((unitSize * 0.1) + (unitSize * 2.5), 0);
-    double pointDistanceX = (col * this.unitSize) + refPointOffset.x +(this.unitSize * 0.25);
+    Point refPointOffset = new Point((this.fmt.unitSize * 0.1) + (this.fmt.unitSize * 2.5), 0);
+    double pointDistanceX = (col * this.fmt.unitSize) + refPointOffset.x +(this.fmt.unitSize * 0.25);
     row = row < 0 ? 0 : row;
     double pointY = _dotPointRowList.get((int) row).center.y + refPointOffset.y + 5;
     return new Point(pointDistanceX, pointY);
@@ -465,43 +457,13 @@ public class ImageFrameProcessorPlugin extends FrameProcessorPlugin {
     return this.intersectWith(this.rowRects.get(row), this.colRects.get(col));
   }
 
-
-  private boolean intersect(Rect r1, Rect r2) {
-    return (r1.x < r2.x + r2.width &&
-            r1.x + r1.width > r2.x &&
-            r1.y < r2.y + r2.height &&
-            r1.y + r1.height > r2.y);
-  }
-
-
   Rect intersectWith(Rect a, Rect b) {
     return  new Rect(new Point(b.x, a.y), new Size(b.width, a.height));
   }
 
 }
 
-
 class OrderedPoint {
   public Point point;
   public double distance;
 }
-
-//  @Override
-//  public Object callback(ImageProxy image, Object[] params) {
-//    // code goes here
-//    WritableNativeMap map = new WritableNativeMap();
-//    ReadableNativeMap config = getConfig(params);
-//    int x4 = config.getInt("x4");
-//    int y4 = config.getInt("y4");
-//
-//    @SuppressLint("UnsafeOptInUsageError")
-//    Bitmap bitmap = BitmapUtils.getBitmap(image);
-////    Mat mat = new Mat(bitmap.getWidth(), bitmap.getHeight(), CvType.CV_8UC1);
-////    Utils.bitmapToMat(bitmap, mat);
-////    Imgproc.cvtColor(mat, mat, Imgproc.COLOR_RGB2GRAY);
-////    Imgproc.rectangle(mat, new Point(x4, y4), new Point(x4+10, y4+10), new Scalar(0, 0, 255), 5);
-////    Utils.matToBitmap(mat, bitmap);
-//    String base64 = ImageUtil.convert(bitmap);
-//    map.putString("base64", base64);
-//    return map;
-//  }
