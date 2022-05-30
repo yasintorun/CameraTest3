@@ -1,12 +1,10 @@
 import * as React from 'react';
-import { SafeAreaView, StyleSheet, Text, Image } from 'react-native';
-import { Camera, useCameraDevices, useFrameProcessor } from 'react-native-vision-camera';
-import { DBRConfig, decode, TextResult } from 'vision-camera-dynamsoft-barcode-reader';
+import { Image, SafeAreaView, StyleSheet } from 'react-native';
 import * as REA from 'react-native-reanimated';
-import { GetImageData } from './src/plugins/GetImageData'
-import { base64ToArrayBuffer } from './src/utils/Converters';
-import { FmtManager, FmtModelType } from './src/fmt/fmtManager';
-import { useEffect } from 'react/cjs/react.production.min';
+import { Camera, useCameraDevices, useFrameProcessor } from 'react-native-vision-camera';
+import { decode } from 'vision-camera-dynamsoft-barcode-reader';
+import { FmtManager } from './src/fmt/fmtManager';
+import { GetImageData } from './src/plugins/GetImageData';
 
 const fmt =
 `20=43=03=D=*= =/DIMENSIONS=46,24,0//ORDER=1032/=
@@ -33,9 +31,9 @@ export default function App() {
     if (results && results[0] && fmtModel) {
       const r = results[0]
       const point = [r.x4, r.y4]
-      const data = GetImageData(frame, {point: point, ok: 2, fmt: {...fmtModel.fmt}})
+      console.log(point)
+      const data = GetImageData(frame, {rotate: -1, point: point, ok: 2, fmt: {...fmtModel.fmt}})
       console.log(Object.keys(data))
-      // setFrame({...data})
       REA.runOnJS(setFrame)({...data});
     }
   }, [fmtModel])
@@ -48,7 +46,6 @@ export default function App() {
 
     const _fmtModel = new FmtManager().parser(fmt);
     setFmtModel(_fmtModel)
-    console.log(_fmtModel)
   }, []);
   console.log(frameData?.sorted)
   return (
@@ -63,7 +60,7 @@ export default function App() {
               frameProcessor={frameProcessor}
               frameProcessorFps={1}
             />
-            <Image source={{ uri: `data:image/jpeg;base64,${frameData?.process}` }} style={{ width: 345, height: 180, resizeMode: "contain" }} />
+            <Image source={{ uri: `data:image/jpeg;base64,${frameData?.after}` }} style={{ width: 345, height: 180, resizeMode: "contain" }} />
           </>
         )}
     </SafeAreaView>

@@ -2,8 +2,6 @@ package com.cameratest3.OpenCV;
 
 import android.util.Log;
 
-import com.facebook.react.bridge.ReactMethod;
-
 import org.opencv.core.Core;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
@@ -17,9 +15,37 @@ import org.opencv.imgproc.Imgproc;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 
 public class ImOpenCV {
+    public Mat CutForm(Mat src, List<Point> points, int[] orderCorner)
+    {
+        Mat result = src.clone();
+        Mat inputMat = new Mat(4, 1, CvType.CV_32FC2);
+        Mat resultMat = new Mat(4, 1, CvType.CV_32FC2);
+
+        inputMat.put(0, 0,
+                points.get(orderCorner[0]).x, points.get(orderCorner[0]).y,
+                points.get(orderCorner[1]).x, points.get(orderCorner[1]).y,
+                points.get(orderCorner[2]).x, points.get(orderCorner[2]).y,
+                points.get(orderCorner[3]).x, points.get(orderCorner[3]).y);
+
+        resultMat.put(0, 0,
+                0, 0,
+                0, result.rows(),
+                result.cols(), 0,
+                result.cols(), result.rows()
+        );
+
+        Mat perspectiveTransform = Imgproc.getPerspectiveTransform(inputMat, resultMat);
+
+        Imgproc.warpPerspective(result, result, perspectiveTransform,
+                new Size(result.cols(), result.rows()));
+
+        return result;
+    }
+
     public Mat perspective(Mat src, List<Point> points, int rotateMode) {
         Mat result = src.clone();
         Mat inputMat = new Mat(4, 1, CvType.CV_32FC2);
@@ -51,7 +77,7 @@ public class ImOpenCV {
         Mat perspectiveTransform = Imgproc.getPerspectiveTransform(inputMat, resultMat);
         Imgproc.warpPerspective(result, result, perspectiveTransform,
                 doc.size());
-        Core.rotate(result, result, rotateMode);
+        //Core.rotate(result, result, rotateMode);
         return result;
     }
 
@@ -122,11 +148,50 @@ public class ImOpenCV {
         List<MatOfPoint> contours = new ArrayList<MatOfPoint>();
         Imgproc.findContours(output, contours, hierarchy, Imgproc.RETR_CCOMP, Imgproc.CHAIN_APPROX_SIMPLE);
 
+        Collections.sort(contours, new Comparator<MatOfPoint>() {
+            @Override
+            public int compare(MatOfPoint lhs, MatOfPoint rhs) {
+                return Double.compare(Imgproc.contourArea(rhs), Imgproc.contourArea(lhs));
+            }
+        });
+
         hierarchy.release();
         grayMat.release();
         output.release();
 
         return contours;
+    }
+
+    public List<Point> sortPoints(List<Point> src) {
+        List<Point> result = new ArrayList<>();
+
+        Comparator<Point> sumComparator = new Comparator<Point>() {
+            @Override
+            public int compare(Point lhs, Point rhs) {
+                return Double.compare(lhs.y + lhs.x, rhs.y + rhs.x);
+            }
+        };
+
+        Comparator<Point> diffComparator = new Comparator<Point>() {
+            @Override
+            public int compare(Point lhs, Point rhs) {
+                return Double.compare(lhs.y - lhs.x, rhs.y - rhs.x);
+            }
+        };
+
+        // top-left corner = minimal sum
+        result.add(Collections.min(src, sumComparator));
+
+        // top-right corner = minimal difference
+        result.add(Collections.min(src, diffComparator));
+
+        // bottom-right corner = maximal sum
+        result.add(Collections.max(src, sumComparator));
+
+        // bottom-left corner = maximal difference
+        result.add(Collections.max(src, diffComparator));
+
+        return result;
     }
 
     public static Rect and (Rect a, Rect b) {

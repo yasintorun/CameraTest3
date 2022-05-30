@@ -24,7 +24,7 @@ public class ImageFrameProcessorPlugin extends FrameProcessorPlugin {
     @SuppressLint("UnsafeOptInUsageError")
     Bitmap bitmap = BitmapUtils.getBitmap(image);
 
-    boolean isSuccess = readOptic.runReader(bitmap);
+    boolean isSuccess = readOptic.runReader(bitmap, config);
     map = readOptic.getMap();
     if(isSuccess || true) {
       Bitmap resultBitmap = readOptic.getResult();

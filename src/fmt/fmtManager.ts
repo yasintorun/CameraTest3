@@ -19,7 +19,6 @@ export class FmtManager {
     
     parser = (fmt:string) : FmtModelType => {
         const arr = fmt.split("\n")
-        // console.log(arr)
         const fmtModel = new Fmt(fmt)
         const panelArr = new Array<FmtPanel>()
     
