@@ -19,7 +19,7 @@ import java.util.Comparator;
 import java.util.List;
 
 public class ImOpenCV {
-    public Mat CutForm(Mat src, List<Point> points, int[] orderCorner)
+    public Mat perspective(Mat src, List<Point> points, int[] orderCorner)
     {
         Mat result = src.clone();
         Mat inputMat = new Mat(4, 1, CvType.CV_32FC2);
@@ -44,80 +44,6 @@ public class ImOpenCV {
                 new Size(result.cols(), result.rows()));
 
         return result;
-    }
-
-    public Mat perspective(Mat src, List<Point> points, int rotateMode) {
-        Mat result = src.clone();
-        Mat inputMat = new Mat(4, 1, CvType.CV_32FC2);
-        Mat resultMat = new Mat(4, 1, CvType.CV_32FC2);
-
-        Point tl = points.get(0);
-        Point tr = points.get(1);
-        Point br = points.get(2);
-        Point bl = points.get(3);
-
-        double widthA = Math.sqrt(Math.pow(br.x - bl.x, 2) + Math.pow(br.y - bl.y, 2));
-        double widthB = Math.sqrt(Math.pow(tr.x - tl.x, 2) + Math.pow(tr.y - tl.y, 2));
-
-        double dw = Math.max(widthA, widthB);
-        int maxWidth = Double.valueOf(dw).intValue();
-
-        double heightA = Math.sqrt(Math.pow(tr.x - br.x, 2) + Math.pow(tr.y - br.y, 2));
-        double heightB = Math.sqrt(Math.pow(tl.x - bl.x, 2) + Math.pow(tl.y - bl.y, 2));
-
-        double dh = Math.max(heightA, heightB);
-        int maxHeight = Double.valueOf(dh).intValue();
-
-
-        Mat doc = new Mat(maxHeight, maxWidth, CvType.CV_8UC4);
-
-        inputMat.put(0, 0, tl.x, tl.y, tr.x, tr.y, br.x, br.y, bl.x, bl.y);
-        resultMat.put(0, 0, 0.0, 0.0, dw, 0.0, dw, dh, 0.0, dh);
-
-        Mat perspectiveTransform = Imgproc.getPerspectiveTransform(inputMat, resultMat);
-        Imgproc.warpPerspective(result, result, perspectiveTransform,
-                doc.size());
-        //Core.rotate(result, result, rotateMode);
-        return result;
-    }
-
-    public Mat perspective2(Mat src, List<Point> points) {
-
-        double ratio = src.size().height / 500;
-        int height = Double.valueOf(src.size().height / ratio).intValue();
-        int width = Double.valueOf(src.size().width / ratio).intValue();
-
-        Point tl = points.get(0);
-        Point tr = points.get(1);
-        Point br = points.get(2);
-        Point bl = points.get(3);
-
-        double widthA = Math.sqrt(Math.pow(br.x - bl.x, 2) + Math.pow(br.y - bl.y, 2));
-        double widthB = Math.sqrt(Math.pow(tr.x - tl.x, 2) + Math.pow(tr.y - tl.y, 2));
-
-        double dw = Math.max(widthA, widthB) * ratio;
-        int maxWidth = Double.valueOf(dw).intValue();
-
-        double heightA = Math.sqrt(Math.pow(tr.x - br.x, 2) + Math.pow(tr.y - br.y, 2));
-        double heightB = Math.sqrt(Math.pow(tl.x - bl.x, 2) + Math.pow(tl.y - bl.y, 2));
-
-        double dh = Math.max(heightA, heightB) * ratio;
-        int maxHeight = Double.valueOf(dh).intValue();
-
-        Mat doc = new Mat(maxHeight, maxWidth, CvType.CV_8UC4);
-
-        Mat src_mat = new Mat(4, 1, CvType.CV_32FC2);
-        Mat dst_mat = new Mat(4, 1, CvType.CV_32FC2);
-
-        src_mat.put(0, 0, tl.x * ratio, tl.y * ratio, tr.x * ratio, tr.y * ratio, br.x * ratio, br.y * ratio,
-                bl.x * ratio, bl.y * ratio);
-        dst_mat.put(0, 0, 0.0, 0.0, dw, 0.0, dw, dh, 0.0, dh);
-
-        Mat m = Imgproc.getPerspectiveTransform(src_mat, dst_mat);
-
-        Imgproc.warpPerspective(src, doc, m, doc.size());
-
-        return doc;
     }
 
     public List<MatOfPoint> findContours(Mat srcMat, boolean isCannyActive, String bitwiseMode) {

@@ -60,7 +60,7 @@ export default function App() {
               frameProcessor={frameProcessor}
               frameProcessorFps={1}
             />
-            <Image source={{ uri: `data:image/jpeg;base64,${frameData?.after}` }} style={{ width: 345, height: 180, resizeMode: "contain" }} />
+            <Image source={{ uri: `data:image/jpeg;base64,${frameData?.base64}` }} style={{ width: 345, height: 180, resizeMode: "contain" }} />
           </>
         )}
     </SafeAreaView>

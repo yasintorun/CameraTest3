@@ -75,45 +75,28 @@ public class ReadOptic {
     }
     /*********/
 
-    public boolean runReader(Bitmap bitmap, ReadableNativeMap config) {
+    public boolean runReader(Bitmap bitmap) {
         this.map = new WritableNativeMap();
         Mat processMat = new Mat(bitmap.getHeight(), bitmap.getWidth(), CvType.CV_8UC1);
         Utils.bitmapToMat(bitmap, processMat);
-        save(processMat, "asdsd");
         List<MatOfPoint> contours = imOpenCV.findContours(processMat, true, "not");
 
         MatOfPoint2f approxContours = new MatOfPoint2f();
         MatOfPoint2f cnt = new MatOfPoint2f(contours.get(0).toArray());
         Imgproc.approxPolyDP(cnt, approxContours, Imgproc.arcLength(cnt, true) * 0.04, true);
 
-        Mat contourImg = processMat.clone();
-        Imgproc.drawContours(contourImg, contours, 0, new Scalar(255, 0, 0, 255), 1);
-        save(contourImg, "ct");
-
-        this.map.putString("fmt1", this.fmt.toString());
         List<Point> sortedPoints = imOpenCV.getSortedPoints(approxContours.toList(), this.barcode, this.fmt.orderCorner);
-        this.map.putString("sorted", Arrays.toString(sortedPoints.toArray()));
 
         if(sortedPoints == null || sortedPoints.size() != 4) {
             return false;
         }
 
-        save(processMat.clone(), "process11");
-        processMat = imOpenCV.CutForm(processMat, sortedPoints, this.fmt.orderCorner);
-        save(processMat, "process");
-        int rotate = config.getInt("rotate");
-        if(rotate > -1) {
-            Core.rotate(processMat, processMat, rotate);
-            save(processMat, "rotated");
-        }
+        processMat = imOpenCV.perspective(processMat, sortedPoints, this.fmt.orderCorner);
 
         this.showMat = new Mat(this.fmt.formSize, CvType.CV_8UC1);
         this.fmt.unitSize = (this.showMat.width() / fmt.dimensions[0]);
 
         Imgproc.resize(processMat, this.showMat, this.fmt.formSize);
-
-        save(showMat, "after");
-        save(processMat, "after2");
 
         dotPointRowList = new ArrayList<>();
 
