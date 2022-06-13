@@ -4,7 +4,6 @@ import androidx.camera.core.ImageProxy;
 import android.annotation.SuppressLint;
 import android.graphics.Bitmap;
 
-import com.cameratest3.readOptic.ReadOptic;
 import com.facebook.react.bridge.WritableNativeMap;
 import com.mrousavy.camera.frameprocessor.FrameProcessorPlugin;
 import com.cameratest3.*;

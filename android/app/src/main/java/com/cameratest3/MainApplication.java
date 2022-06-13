@@ -4,6 +4,7 @@ import android.app.Application;
 import android.content.Context;
 import android.util.Log;
 
+import com.cameratest3.readOptic.ReadOpticPackage;
 import com.facebook.react.PackageList;
 import com.facebook.react.ReactApplication;
 import com.rnfs.RNFSPackage;
@@ -38,6 +39,7 @@ public class MainApplication extends Application implements ReactApplication {
           List<ReactPackage> packages = new PackageList(this).getPackages();
           packages.add(new VisionCameraDynamsoftBarcodeReaderPackage()); //added
           packages.add(new com.cameratest3.frameProcessor.ImageFrameProcessorPluginPackage()); //added
+            packages.add(new ReadOpticPackage());
           // Packages that cannot be autolinked yet can be added manually here, for example:
           // packages.add(new MyReactNativePackage());
           return packages;
